@@ -46,16 +46,18 @@ class TradeHistoryController extends Controller
     {
         try {
             //Validated
-            $validateUser = Validator::make($request->all(), 
-            [
-                'trade_id'      =>  'required',
-                'trade_amount'  =>  'required',
-                'trade_currency'=>  'required',
-                'payment_id'    =>  'required',
-                'trade_type'    =>  'required',
-            ]);
+            $validateUser = Validator::make(
+                $request->all(),
+                [
+                    'trade_id'      =>  'required',
+                    'trade_amount'  =>  'required',
+                    'trade_currency' =>  'required',
+                    'payment_id'    =>  'required',
+                    'trade_type'    =>  'required',
+                ]
+            );
 
-            if($validateUser->fails()){
+            if ($validateUser->fails()) {
                 return response()->json([
                     'status' => false,
                     'message' => 'validation error',
@@ -66,13 +68,14 @@ class TradeHistoryController extends Controller
 
             $tradeType = $request->trade_type;
 
-            $type = !in_array($tradeType, ['buy', 'sell']); return \get_error_response(['msg', 'Unknown Transaction type'], 417);
+            $type = !in_array($tradeType, ['buy', 'sell']);
+            return \get_error_response(['msg', 'Unknown Transaction type'], 417);
             $where = [
                 'tradeType'     =>  $tradeType,
-                'trade_currency'=>  $request->trade_currency
+                'trade_currency' =>  $request->trade_currency
             ];
             $trade = Trade::where($where)->where('min_amount', '>=', $request->trade_amount)->where('max_amount', '<=', $request->trade_amount)->orderBy('cancellation_rate', 'ASC')->first();
-            
+
             // create a new Buy Trade
             $trade = new TradeHistory();
             $trade->user_id           = auth('sanctum')->id();
@@ -83,8 +86,11 @@ class TradeHistoryController extends Controller
             $trade->trade_currency    = $trade->currency;
             $trade->payment_id        = $request->payment_id;
             $trade->trade_type        = $request->trade_type;
-             
-            if($trade->save()){
+
+
+            if ($trade->save()) {
+                // get order joined with payment data
+                $trade = TradeHistory::where('id', $trade->id)->with('payment_method')->first();
                 return get_success_response(['msg' => 'Trade created successfully', "data" => $trade]);
             }
         } catch (\Throwable $th) {
@@ -102,8 +108,8 @@ class TradeHistoryController extends Controller
     {
         try {
             $trade = TradeHistory::where('tradeType', $request->tradeType)
-                        // ->where('currency', $request->currency)
-                        ->paginate(15);
+                // ->where('currency', $request->currency)
+                ->paginate(15);
             return get_success_response($trade);
         } catch (\Throwable $th) {
             return get_error_response($th->getMessage(), 500);
@@ -149,8 +155,9 @@ class TradeHistoryController extends Controller
 
     public function init(Request $request, $tradeType)
     {
-        $type = !in_array($tradeType, ['buy', 'sell']); return \get_error_response(['msg', 'Unknown Transaction type'], 417);
-        $trade = TradeHistory::where('tradeType', $tradeType)->where('min_amount', '>=', $request->amount)->where('trade_currency', $request->currency )->orderBy('cancellation_rate', 'ASC')->get();
+        $type = !in_array($tradeType, ['buy', 'sell']);
+        return \get_error_response(['msg', 'Unknown Transaction type'], 417);
+        $trade = TradeHistory::where('tradeType', $tradeType)->where('min_amount', '>=', $request->amount)->where('trade_currency', $request->currency)->orderBy('cancellation_rate', 'ASC')->get();
         // Amount to be transacted by user
         $amount = '';
     }

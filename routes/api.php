@@ -7,6 +7,7 @@ use App\Http\Controllers\GetDepositAddress;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\PaymentLink;
 use App\Http\Controllers\BalanceController;
+use App\Http\Controllers\ComplianceController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TradeController;
@@ -71,6 +72,16 @@ Route::group(['middleware' => 'web'], function (){
 
         Route::group(['prefix' => 'account'], function (){
             Route::get('balance',           [BalanceController::class, 'balance']);
+        });
+        
+
+        Route::group(['prefix' => 'compliance'], function (){
+            Route::get('/',                 [ComplianceController::class, 'get']);
+            Route::post('identity',         [ComplianceController::class, 'identity']);
+            Route::post('address',          [ComplianceController::class, 'address']);
+            Route::post('directors',        [ComplianceController::class, 'directors']);
+            Route::post('share_holders',    [ComplianceController::class, 'share_holders']);
+            Route::post('business_docs',    [ComplianceController::class, 'business_docs']);
         });
         
         

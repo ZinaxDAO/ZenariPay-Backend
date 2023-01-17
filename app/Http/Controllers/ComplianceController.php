@@ -8,6 +8,16 @@ use Illuminate\Support\Facades\Validator;
 
 class ComplianceController extends Controller
 {
+    public function get()
+    {
+        try {
+            $data = Compliance::where('user_id', request()->user()->id)->first();
+            return get_success_response($data);
+        } catch (\Throwable $th) {
+            return get_error_response($th->getMessage(), $th->getCode());
+        }
+    }
+
     public function identity(Request $request)
     {
         try {
@@ -28,9 +38,9 @@ class ComplianceController extends Controller
                 'user_id'       =>  $request->user()->id,
                 'nationality'   =>  $request->nationality,
                 'idType'        =>  $request->idType,
-                'id_front'      =>  $request->id_front,
-                'id_back'       =>  $request->id_back,
-                'selfie_image'  =>  $request->selfie_image
+                'id_front'      =>  save_image('compliance', $request->id_front),
+                'id_back'       =>  save_image('compliance', $request->id_back),
+                'selfie_image'  =>  save_image('compliance', $request->selfie_image)
             ]);
             if ($save) {
                 return get_success_response(['msg' => 'Processing, we would revert back shortly']);
@@ -59,7 +69,7 @@ class ComplianceController extends Controller
             $save = Compliance::where('user_id', $request->user()->id)->first();
             $save->zipcode       =  $request->zipcode;
             $save->utilityType   =  $request->utilityType;
-            $save->utility_image =  $request->utility_image;
+            $save->utility_image =  save_image('compliance', $request->utility_image);
 
             if ($save->save()) {
                 return get_success_response(['msg' => 'Address updated successfully']);

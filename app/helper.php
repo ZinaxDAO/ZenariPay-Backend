@@ -5,6 +5,7 @@ use App\Models\Balance;
 use App\Models\User;
 use App\Models\Rate;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Str;
 
 
 if (!function_exists('get_error_response')) {
@@ -301,7 +302,7 @@ if (!function_exists('slugify')) {
      */
     function slugify(string $title):string
     {
-        return \Str::slug($title).Str::random(4);
+        return Str::slug($title).Str::random(4);
     }
 }
 

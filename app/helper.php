@@ -45,7 +45,7 @@ if (!function_exists('save_db_rate')) {
    {
         $request = file_get_contents("https://min-api.cryptocompare.com/data/price?fsym=$fromCurrency&tsyms=$toCurrency");
         
-        // return $url = to_array($request);
+        return $url = to_array($request);
         $result = $url[$toCurrency];
         if(!in_array($toCurrency, $url)){
             return 0;

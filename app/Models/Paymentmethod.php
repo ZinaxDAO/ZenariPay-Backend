@@ -9,7 +9,18 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Paymentmethod extends Model
 {
     use HasFactory, SoftDeletes;
+    
     protected $casts = [
-        'payment_info'  =>  'array'
+        'payment_info'  =>  'array',
+        'currency'      =>  'string'
+    ];
+    
+    protected $guarded = [];
+    
+    protected $hidden = [
+        "user_id",
+        "created_at",
+        "updated_at",
+        "deleted_at"
     ];
 }

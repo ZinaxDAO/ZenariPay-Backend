@@ -22,7 +22,7 @@ class OrderController extends Controller
     public function get_all()
     {
         try {
-            $get = Order::where('user_id', auth('sanctum')->id())->paginate();
+            $get = Order::where('user_id', auth('sanctum')->id())->orderBy('created_at', 'desc')->paginate();
             if(!empty($get)){
                 $get->makeHidden(['updated_at', 'id', 'created_at', 'user_id', 'deleted_at']);
                 return get_success_response($get);
@@ -63,21 +63,14 @@ class OrderController extends Controller
             if($validateUser->fails()){
                 return get_error_response($validateUser->errors(), 400);
             }
-
-            $fees = get_fees($request->coin, $request->amount, $request->fiat);
-            $apiRequest = GetDepositAddress::getRandomDepositWallet($request->coin);
-            if(empty($apiRequest) OR $apiRequest == false):
-                return get_error_response(['msg' => 'Coin currently not available/Supported'], 404);
-            endif;
-
+            // add order to database
             // TRasnsaction data
             $merchant = auth('sanctum')->id();
             $data = [
                 'user_id'                   =>  $merchant,
-                'address'                   =>  $apiRequest,
                 "reference"                 =>  _getTransactionId(),
-                'customerName'              =>  $request->customer_name,
-                'customerEmail'             =>  $request->customer_email,
+                'customer_name'             =>  $request->customer_name,
+                'customer_email'            =>  $request->customer_email,
                 'coin'                      =>  $request->coin,
                 'currency'                  =>  $request->currency,
                 'fiatAmount'                =>  $request->amount,
@@ -85,16 +78,7 @@ class OrderController extends Controller
                 'feeInCrypto'               =>  $fees['feeInCrypto'],
             ];    
 
-            // add customer to customer DB
-            $customer = new Customers();
-                
-            $customer->user_id          = $merchant;
-            $customer->customer_name    = $request->customer_name;
-            $customer->customer_email   = $request->customer_email;
-            $customer->save();
-
-            // add order to database
-            $orderRequest = Order::create($data);
+            $orderRequest = $this->__processOrder($data, $merchant);
 
             if($orderRequest):
                 // convert API Response to array if it's not in array
@@ -106,6 +90,52 @@ class OrderController extends Controller
             // Return server error
             return get_error_response($th->getMessage(), 500);
         }
+    }
+    
+    public function __processOrder($data, $sellerId=null)
+    {   
+
+        $fees = get_fees($data['coin'], $data['amount'], $data['fiat']);
+        $apiRequest = GetDepositAddress::getRandomDepositWallet($data['coin']);
+        if(empty($apiRequest) OR $apiRequest == false):
+            return get_error_response(['msg' => 'Coin currently not available/Supported'], 404);
+        endif;
+
+        // TRasnsaction data
+        $merchant = $sellerId ?? auth('sanctum')->id();
+        $amountInCrypto = getExchangeVal($data['currency'], $data['coin'], $data['amount']);
+        $data = [
+            'user_id'                   =>  $data['user_id'],
+            'address'                   =>  $apiRequest,
+            "reference"                 =>  _getTransactionId(),
+            'customerName'              =>  $data['customer_name'],
+            'customerEmail'             =>  $data['customer_email'],
+            'coin'                      =>  $data['coin'],
+            'currency'                  =>  $data['currency'],
+            'fiatAmount'                =>  $data['amount'],
+            'cryptoAmount'              =>  number_format($amountInCrypto, 8),
+            'feeInCrypto'               =>  $fees['feeInCrypto'],
+        ];    
+
+        // add customer to customer DB
+        $customer = new Customers();
+            
+        $addr["country"]    = request()->country;
+        $addr["state"]      = request()->state;
+        $addr["line1"]      = request()->line1;
+        $addr["line2"]      = request()->line2;
+        $addr["city"]       = request()->city;
+        
+        $customer->user_id          = $merchant;
+        $customer->customer_email   = request()->customer_email;
+        $customer->customer_name    = request()->customer_name;
+        $customer->customer_data    = $addr;
+        $customer->save();
+
+        // add order to database
+        $orderRequest = Order::create($data);
+
+        return $orderRequest;
     }
 
     /**
@@ -143,7 +173,6 @@ class OrderController extends Controller
     public function status($order)
     {
         try {
-
             $orderRequest = Order::where([
                 'reference' => $order,
                 'user_id' => auth('sanctum')->id()

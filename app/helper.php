@@ -1,6 +1,10 @@
 <?php
 
 use App\Models\WebSettings;
+use App\Models\Balance;
+use App\Models\User;
+use App\Models\Rate;
+use Illuminate\Support\Facades\Http;
 
 
 if (!function_exists('get_error_response')) {
@@ -19,6 +23,64 @@ if (!function_exists('get_error_response')) {
         ];
         return response()->json($msg, $code);
     }
+}
+
+
+
+if (!function_exists('getUser')) {
+    function getUsers()
+    {
+        $users = User::where('id', auth()->id())->first();
+        return $users;
+    }
+}
+
+if (!function_exists('save_db_rate')) {
+   /*
+    * Convert fee to BTC
+    * @param string currency
+    * @param float-decimal amount
+    */
+   function save_db_rate($fromCurrency, $toCurrency, $amount=null)
+   {
+        $request = file_get_contents("https://min-api.cryptocompare.com/data/price?fsym=$fromCurrency&tsyms=$toCurrency");
+        
+        // return $url = to_array($request);
+        $result = $url[$toCurrency];
+        if(!in_array($toCurrency, $url)){
+            return 0;
+        }
+        if($amount != null){
+            $result = $result * $amount;
+        }
+        
+        return $result;
+   }
+}
+
+if (!function_exists('getExchangeVal')) {
+   /*
+    * Convert fee to BTC
+    * @param string currency
+    * @param float-decimal amount
+    */
+   function getExchangeVal($fromCurrency, $toCurrency, $amount=null)
+   {
+        $request = Rate::where(['from_currency' => $fromCurrency, 'to_currency' => $toCurrency])->first();
+        $result = 0;
+        if(!empty($rate)){
+            $rate = to_array($request);
+            if(!in_array($toCurrency, $rate)){
+                return 0;
+            }
+            $result = $rate[$toCurrency];
+            if($amount != null){
+                $result = $result * $amount;
+            }
+        }
+        
+        return $result;
+   }
 }
 
 if (!function_exists('addOrderToDB')) {
@@ -57,20 +119,37 @@ if (!function_exists('get_success_response')) {
     }
 }
 
+if (!function_exists('to_array')) {
+    /**
+     * convert object to array
+     */
+    function to_array($data) : array
+    {
+        if (is_array($data)) {
+            return $data;
+        } else if (is_object($data)) {
+            return json_decode(json_encode($data), true);
+        } else {
+            return json_decode($data, true);
+        }
+    }
+}
+
 if (!function_exists('result')) {
     /**
      * convert object to array
      */
-    function result($result) : array
+    function result($data) : array
     {
-        if (is_array($result)) :
-            return ($result);
-        else :
-            return json_decode($result, true);
-        endif;
+        if (is_array($data)) {
+            return $data;
+        } else if (is_object($data)) {
+            return json_decode(json_encode($data), true);
+        } else {
+            return json_decode($data, true);
+        }
     }
 }
-
 
 if (!function_exists('_getTransactionId')) {
     /**
@@ -193,6 +272,23 @@ if (!function_exists('settings')) {
     }
 }
 
+if (!function_exists('per_page')) {
+    /**
+     * Gera a paginação dos itens de um array ou collection.
+     *
+     * @param array|Collection      $items
+     * @param int   $perPage
+     * @param int  $page
+     * @param array $options
+     *
+     * @return Strings
+     */
+    function per_page($per_page = 5):string
+    {
+        return $per_page;
+    }
+}
+
 if (!function_exists('slugify')) {
     /**
      * Gera a paginação dos itens de um array ou collection.
@@ -206,5 +302,71 @@ if (!function_exists('slugify')) {
     function slugify(string $title):string
     {
         return \Str::slug($title).Str::random(4);
+    }
+}
+
+if (!function_exists('get_commision')) {
+    /* 
+     * @param array $options
+     *
+     */
+    function get_commision($amount, $percentage)
+    {
+        $commission = (($amount / 100) * $percentage);
+        return $commission;
+    }
+}
+
+if (!function_exists('balanceTopup')) {
+    /**
+     * Charge user wallet balance
+     * @param amount, 
+     * @param string currency
+     * @param optional $user_id
+     */
+
+    function balanceTopup($amount, $currency, $user_id = NULL)
+    {
+        $uid = $user_id ?? auth()->id();
+        $currency = $currency ?? 'USD';
+        $user = Balance::where(['user_id' => $uid, 'code' => $currency])->first();
+        if($user) :
+            $user->balance = ($user->balance + $amount);
+            if ($user->save()) :
+                TransactionModel::insert([
+                    'user_id'   => $uid,
+                    'type'      => 'credit',
+                    'action'    => 'topup',
+                    'amount'    => $amount,
+                    'fee'       => 0,
+                    'receiver'  => 'self',
+                    'rate'      => 0,
+                    'reference' => session()->get('tranx_id') ?? _getTransactionId(),
+                    'details'   => json_encode($user)
+                ]);
+                return true;
+            endif;
+        endif;
+        return false;
+    }
+}
+
+if (!function_exists('validate_otp')) {
+    function validate_otp($code, $reference_id)
+    {
+        $ch = curl_init();
+        $url = getenv('DOJA_URL')."/messaging/otp/validate?code=$code&reference_id=$reference_id";
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'GET');
+        //curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($data));
+        $headers = array();
+        $headers[] = 'Appid: ' . getenv("DOJA_APP_ID");
+        $headers[] = 'Content-Type: application/x-www-form-urlencoded';
+        $headers[] = 'Authorization: ' . getenv("DOJA_PRIVATE_KEY");
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        $result = result(curl_exec($ch));
+        return $result;
+        curl_close($ch);
     }
 }

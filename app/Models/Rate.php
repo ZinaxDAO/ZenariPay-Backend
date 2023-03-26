@@ -4,16 +4,15 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
-class Customers extends Model
+class Rate extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
+
     /**
      * The attributes that should be hidden for arrays.
      */
-    protected $hidden = ['user_id', 'updated_at', 'deleted_at'];
+    protected $hidden = ['id', 'created_at', 'updated_at', 'deleted_at'];
     protected $guarded = [];
-    protected $casts = [
-        "customer_data" => "array"    
-    ];
 }

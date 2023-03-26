@@ -37,8 +37,8 @@ class GetDepositAddress extends Controller
     public function store(Request $request)
     {
         $param = [            
-            "label" =>  "BNB 0001",
-            "asset" =>  "BTC",
+            "label" =>  "BitPowr".uniqid(),
+            "asset" =>  $request->asset ??   "BTC",
             "accountId" =>  "7df83749-c240-4303-81cd-43e7be2c3975",
         ];
         if (empty($publicKey)) {
@@ -128,7 +128,7 @@ class GetDepositAddress extends Controller
     public static function getRandomDepositWallet($currency)
     {
         $address = new WalletAddress();
-        $address = WalletAddress::where('currency', $currency)->orderBy('last_used', 'DESC')->first();
+        $address = WalletAddress::where('currency', $currency)->orderBy('last_used', 'ASC')->first();
         if (!empty($address)) {
             $depositAddress = $address->wallet_address;
             $address->last_used = now();

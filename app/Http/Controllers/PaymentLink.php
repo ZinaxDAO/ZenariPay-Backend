@@ -53,10 +53,30 @@ class PaymentLink extends Controller
             if($validateUser->fails()){
                 return get_error_response($validateUser->errors(), 401);
             }
+            
+            if($request->link_type == 'donation'){
+                $save = ModelsPaymentLinkButton::create([
+                    'user_id'           =>  auth('sanctum')->id(),
+                    'product_id'        =>  1,
+                    'donate_amount'     =>  $request->donate_amount,
+                    'link_title'        =>  $request->link_title ?? NULL,
+                    'slug'              =>  slugify($request->link_title),
+                    'link_description'  =>  $request->link_description ?? NULL,
+                    'link_type'         =>  $request->link_type ?? NULL,
+                    'phone_number'      =>  $request->phone_number ?? NULL,
+                    'shipping_address'  =>  $request->shipping_address ?? NULL,
+                    'redirect_website'  =>  $request->redirect_website ?? NULL,
+                    'payment_success_msg'=>  $request->payment_success_msg ?? NULL,
+                ]);
+                if ($save->makeHidden(['user_id', 'created_at', 'updated_at', 'deleted_at'])) {
+                    return get_success_response($save);
+                }
+                return get_error_response($save);
+            }
 
             $save = ModelsPaymentLinkButton::create([
                 'user_id'           =>  auth('sanctum')->id(),
-                'product_id'        =>  $request->product_id ?? NULL,
+                'product_id'        =>  $request->product_id ?? 1,
                 'link_title'        =>  $request->link_title ?? NULL,
                 'slug'              =>  slugify($request->link_title),
                 'link_description'  =>  $request->link_description ?? NULL,

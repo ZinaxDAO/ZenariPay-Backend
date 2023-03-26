@@ -14,11 +14,27 @@ class TradeController extends Controller
      *
      * @return \Illuminate\Http\Response
      */
-    public function index()
+    public function index(Request $request)
     {
         // Grab list of all Buy Trades active and non active
         try {
-            $trade = Trade::where('user_id', $request->user()->id)->paginate(15);
+            $trade = Trade::where('user_id', $request->user()->id)->orderBy('created_at', 'DESC')->paginate(per_page());
+            return get_success_response($trade);
+        } catch (\Throwable $th) {
+            return get_error_response($th->getMessage(), 500);
+        }
+    }
+    
+    /**
+     * Display a listing of the resource.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function deleted(Request $request)
+    {
+        // Grab list of all Buy Trades active and non active
+        try {
+            $trade = Trade::where('user_id', $request->user()->id)->orderBy('created_at', 'DESC')->onlyTrashed()->paginate(per_page());
             return get_success_response($trade);
         } catch (\Throwable $th) {
             return get_error_response($th->getMessage(), 500);
@@ -43,6 +59,7 @@ class TradeController extends Controller
      */
     public function store(Request $request)
     {
+        // return $req
         try {
             //Validated
             $validateUser = Validator::make($request->all(), 
@@ -51,8 +68,8 @@ class TradeController extends Controller
                 'max_amount'    =>  'required',
                 'trade_currency'=>  'required',
                 'priceType'     =>  'required',
-                'totalAmount'   =>  'required',
-                'paymentMethod' =>  'required',
+                'totalAmount'   =>  'required|lte:max_amount',
+                'paymentMethod' =>  'required|int',
                 'tradeType'     =>  'required',
                 'assetName'     =>  'required',
                 'fiatName'      =>  'required',
@@ -76,8 +93,9 @@ class TradeController extends Controller
             $buy->totalAmount       = $request->totalAmount;
             $buy->paymentMethod     = $request->paymentMethod; // array of IDs
             $buy->tradeType         = $request->tradeType;
-            $buy->assetName         = $request->assetName;
+            $buy->time_limit        = $request->time_limit;
             $buy->fiatName          = $request->fiatName;
+            $buy->terms             = $request->terms;
             $buy->marginPrice       = $request->marginPrice;
              
             if($buy->save()){
@@ -98,7 +116,42 @@ class TradeController extends Controller
     {
         try {
             $trade = Trade::where('tradeType', $request->tradeType)
-                        // ->where('currency', $request->currency)
+                        ->where('user_id', $request->user()->id)
+                        ->with('payment_info')
+                        ->paginate(15);
+            return get_success_response($trade);
+        } catch (\Throwable $th) {
+            return get_error_response($th->getMessage(), 500);
+        }
+    }
+
+    /**
+     * Display the specified resource.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
+    public function agent(Request $request)
+    {
+        try {
+            $trade = Trade::where('agent_id', $request->user()->id)
+                        ->paginate(15);
+            return get_success_response($trade);
+        } catch (\Throwable $th) {
+            return get_error_response($th->getMessage(), 500);
+        }
+    }
+
+    /**
+     * Display the specified resource.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
+    public function user(Request $request)
+    {
+        try {
+            $trade = Trade::where('user_id', $request->user()->id)
                         ->paginate(15);
             return get_success_response($trade);
         } catch (\Throwable $th) {
@@ -146,7 +199,7 @@ class TradeController extends Controller
     public function init(Request $request, $tradeType)
     {
         $type = !in_array($tradeType, ['buy', 'sell']); return \get_error_response(['msg', 'Unknown Transaction type'], 417);
-        $trade = Trade::where('tradeType', $tradeType)->where('min_amount', '>=', $request->amount)->where('trade_currency', $request->currency )->orderBy('cancellation_rate', 'ASC')->get();
+        $trade = Trade::where('tradeType', $tradeType)->where('min_amount', '>=', $request->amount)->where('trade_currency', $request->currency )->with('payment_info')->orderBy('cancellation_rate', 'ASC')->get();
         // Amount to be transacted by user
         $amount = '';
     }

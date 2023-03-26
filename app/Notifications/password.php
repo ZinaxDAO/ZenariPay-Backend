@@ -2,13 +2,13 @@
 
 namespace App\Notifications;
 
-use App\Models\Mails;
+use App\Models\User;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class Registration extends Notification
+class password extends Notification
 {
     use Queueable;
 
@@ -42,25 +42,24 @@ class Registration extends Notification
     public function toMail($notifiable)
     {
         return (new MailMessage)
-            ->subject("Welcome to ZeenahPay")
+            ->subject("Password Reset Email")
             ->greeting("Hello ". $this->msg['name'])
             ->line("\n\n")
             ->line($this->msg['body'])
             ->line("\n\n")
-            ->line("If you did not signup on www.zeenahpay.com, please kindly ignore the message. If you believe your account has been compromised, contact us immediately.");
+            ->line("If you didn't request a password reset, follow our account security guide to secure your account. If you believe your account has been compromised, contact us immediately.");
     }
 
     /**
      * Get the array representation of the notification.
      *
-     * @param  mixed  $notifiable
-     * @return array
+     * @return array<string, mixed>
      */
-    public function toArray($notifiable)
+    public function toArray(object $notifiable): array
     {
         return [
-            'title' => "Registration Successful",
-            'body'  => ""
+            'message' => "Password Reset Email",
+            'subject' => "You Initiated a password reset process from IP: ".request()->ip(),
         ];
     }
 }

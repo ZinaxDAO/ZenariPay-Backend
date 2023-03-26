@@ -5,9 +5,11 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Compliance extends Model
+class Curr_requirement extends Model
 {
     use HasFactory;
-    
-    protected $guarded = [];
+  	protected $table = 'curr_requirements';
+  	protected $casts = [
+  	    'payment_info'   => 'array'
+  	];
 }

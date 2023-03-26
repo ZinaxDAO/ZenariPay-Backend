@@ -3,13 +3,15 @@
 namespace App\Http\Controllers;
 
 use App\Models\Paymentmethod;
+use App\Models\Curr_requirement;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 
 class PaymentMethodController extends Controller
 {
     /**
      * Display a listing of the resource.
-     *
+     * Get Payment method for users
      * @return \Illuminate\Http\Response
      */
     public function index(Request $request)
@@ -17,6 +19,28 @@ class PaymentMethodController extends Controller
         try {
             $getMethods = Paymentmethod::where('user_id', $request->user()->id)->get();
             return get_success_response($getMethods);
+        } catch (\Throwable $th) {
+            return get_error_response($th->getMessage(), 500);
+        }
+    }
+    
+    /**
+     * Display a listing of the resource.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function sys_currencies(Request $request)
+    {
+        try {
+            $where = [];
+            if($request->has('currency') && !empty($request->input('currency'))):
+                $where['currency'] = $request->currency;
+                $getMethods = Curr_requirement::where($where)->get()->makeHidden(['created_at', 'updated_at', 'deleted_at']);
+                return get_success_response($getMethods);
+            else:
+                $getMethods = Curr_requirement::get()->makeHidden(['created_at', 'updated_at', 'deleted_at']);
+                return get_success_response($getMethods);
+            endif;
         } catch (\Throwable $th) {
             return get_error_response($th->getMessage(), 500);
         }
@@ -42,6 +66,18 @@ class PaymentMethodController extends Controller
     {
         try {
             //validate data
+            // $validateUser = Validator::make($request->all(), 
+            // [
+            //     'currency'  =>  'required',
+            // ]);
+
+            // if($validateUser->fails()){
+            //     return response()->json([
+            //         'status' => false,
+            //         'message' => 'validation error',
+            //         'errors' => $validateUser->errors()
+            //     ], 400);
+            // }
 
             $payment_info = [];
             foreach ($request->post() as $key => $v) {
@@ -49,9 +85,10 @@ class PaymentMethodController extends Controller
             }
             // create new payment method for user
             $method = new Paymentmethod();
-            $method->user_id = $request->user()->id;
-            $method->method_name = $request->method_name;
-            $method->payment_info = $payment_info;
+            $method->user_id        = $request->user()->id;
+            $method->currency       = $request->currency;
+            $method->method_name    = $request->method_name;
+            $method->payment_info   = $payment_info;
             if ($method->save()) {
                 return get_success_response(['msg' => 'Payment method added successfull']);
             }

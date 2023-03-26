@@ -15,4 +15,14 @@ class PaymentLinkButton extends Model
      */
     protected $hidden = ['user_id', 'updated_at', 'deleted_at'];
     protected $guarded = [];
+    
+    public function product()
+    {
+        return $this->belongsTo(Product::class);
+    }
+    
+    public static function findBySlug($slug){
+        $data = self::where('slug', $slug)->with(['product'])->first();
+        return $data;
+    }
 }

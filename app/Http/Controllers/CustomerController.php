@@ -65,11 +65,24 @@ class CustomerController extends Controller
         }
     }
 
+    public function customer($email)
+    {
+         //Get all customers for users
+        try {
+            $orders = Order::where(['user_id' => request()->user()->id, "customerEmail" => $email])->paginate(per_page());
+            if ($orders) {
+                return get_success_response($orders);
+            }
+        } catch (\Throwable $th) {
+            return get_error_response($th->getMessage(), 500);
+        }
+    }
+
     public function list()
     {
          //Get all customers for users
          try {
-            $customers = Customers::where('user_id', auth('sanctum')->id())->paginate(20);
+            $customers = Customers::where('user_id', request()->user()->id)->groupBy('customer_email')->paginate(per_page());
             if ($customers) {
                 return get_success_response($customers);
             }

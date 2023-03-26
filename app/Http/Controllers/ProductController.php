@@ -56,7 +56,7 @@ class ProductController extends Controller
                 'product_price'         =>  $request->product_price ?? NULL,
                 'product_social'        =>  $request->product_social ?? NULL,
                 'product_description'   =>  $request->product_description ?? NULL,
-                'product_image'         =>  save_image('products', $request->product_image) ?? NULL,
+                'product_image'         =>  save_image('products', $request->file('product_image')) ?? NULL,
             ]);
             if ($save) {
                 return get_success_response($save);

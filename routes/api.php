@@ -64,7 +64,7 @@ Route::group(['middleware' => 'web'], function (){
         Route::post('create-wallet-address',    [GetDepositAddress::class, 'getRandomDepositWallet']);
         Route::get('generate-wallet-address',   [GetDepositAddress::class, 'store']);
         Route::get('cmd-get/{id}',              [OrderController::class, 'get']);
-        Route::get('cmd-get-all',               [OrderController::class, 'get_all']);
+        Route::any('cmd-get-all',               [OrderController::class, 'get_all']);
         Route::post('cmd-create',               [OrderController::class, 'store']);
         Route::get('cmd-status/{id}',           [OrderController::class, 'status']);
 

@@ -12,7 +12,7 @@ class PayoutController extends Controller
 {
     public function withdraw(Request $request)
     {   
-        $arr = ["BTC", "BCH", "USDT", "LTC"];
+        $arr = ["BTC", "BNB", "USDT", "LTC"];
         if(!in_array($request->wallet_type, $arr)){
           return get_error_response(["error" => "Invalid withdrawal method provided"]);
         }

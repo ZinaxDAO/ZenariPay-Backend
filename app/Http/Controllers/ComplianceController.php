@@ -39,6 +39,7 @@ class ComplianceController extends Controller
             $data = Compliance::where('user_id', request()->user()->id)->count();
             if($data < 1){
                 $save = Compliance::create([
+                    'user_id'               =>  $request->user()->id,
                     'fullName'              =>  $request->fullName,
                     'email'                 =>  $request->email,
                     'phone'                 =>  $request->phone,
@@ -90,6 +91,7 @@ class ComplianceController extends Controller
             $data = Compliance::where('user_id', request()->user()->id)->count();
             if($data < 1){
                 $save = Compliance::create([
+                    'user_id'               =>  $request->user()->id,
                     'legal_business_name'   =>  $request->legal_business_name,
                     'operating_biss_as'     =>  $request->operating_biss_as,
                     'registration_country'  =>  $request->registration_country,

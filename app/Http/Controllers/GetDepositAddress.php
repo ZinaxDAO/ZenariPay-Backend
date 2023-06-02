@@ -34,47 +34,50 @@ class GetDepositAddress extends Controller
      * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Http\Response
      */
-    public function store(Request $request)
+    public function store(Request $request, $publicKey=null, $secretKey=null)
     {
-        $param = [            
-            "label" =>  "BitPowr".uniqid(),
-            "asset" =>  $request->asset ??   "BTC",
-            "accountId" =>  "7df83749-c240-4303-81cd-43e7be2c3975",
-        ];
-        if (empty($publicKey)) {
-            $publicKey = getenv('BIT_POWR_PUBLIC_KEY');
+        $i = 3;
+        while($i < 500){ 
+            $param = [            
+                "label" =>  "BitPowr".uniqid(),
+                "asset" =>  $request->asset ??   "USDT_BSC",
+                "accountId" =>  "6e43dec6-5482-45c0-9108-10c36d0912f0", //"7df83749-c240-4303-81cd-43e7be2c3975",
+            ];
+            if (empty($publicKey)) {
+                $publicKey = getenv('BIT_POWR_PUBLIC_KEY');
+            }
+            if (empty($secretKey)) {
+                $secretKey = getenv('BIT_POWR_SECRET_KEY');
+            }
+    
+            $bearerToken = base64_encode("$publicKey:$secretKey");
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, 'https://developers.bitpowr.com/api/v1/addresses');
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+            curl_setopt($ch, CURLOPT_POST, 1);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($param));
+    
+            $headers = array();
+            $headers[] = 'Accept: application/json';
+            $headers[] = "Authorization: Bearer $bearerToken";
+            $headers[] = 'Content-Type: application/x-www-form-urlencoded';
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+    
+            $result = curl_exec($ch);
+            if (curl_errno($ch)) {
+                echo 'Error:' . curl_error($ch);
+            }
+            curl_close($ch);
+            $resp = result($result);
+            WalletAddress::create([
+                'currency'  =>  "USDT", //$resp['data']['assetType'],
+                'wallet_address'    =>  $resp['data']['address'],
+                'total_use' =>  0,
+                'other' =>  $resp
+            ]);
+            $i++;
+            // return response()->json($resp);
         }
-        if (empty($secretKey)) {
-            $secretKey = getenv('BIT_POWR_SECRET_KEY');
-        }
-
-        $bearerToken = base64_encode("$publicKey:$secretKey");
-        // return http_build_query($param);
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, 'https://developers.bitpowr.com/api/v1/addresses');
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-        curl_setopt($ch, CURLOPT_POST, 1);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($param));
-
-        $headers = array();
-        $headers[] = 'Accept: application/json';
-        $headers[] = "Authorization: Bearer $bearerToken";
-        $headers[] = 'Content-Type: application/x-www-form-urlencoded';
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-
-        $result = curl_exec($ch);
-        if (curl_errno($ch)) {
-            echo 'Error:' . curl_error($ch);
-        }
-        curl_close($ch);
-        $resp = result($result);
-        WalletAddress::create([
-            'currency'  =>  $resp['data']['assetType'],
-            'wallet_address'    =>  $resp['data']['address'],
-            'total_use' =>  0,
-            'other' =>  json_encode($resp)
-        ]);
-        return response()->json(result($result));
     }
 
     /**

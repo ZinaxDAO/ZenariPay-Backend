@@ -35,10 +35,10 @@ class Handler extends ExceptionHandler
     public function register()
     {
         $this->renderable(function (Throwable $e, $request) {
-            // if (str_contains($e->getMessage(), 'Controllers')) {
+            // if (str_contains($e->getMessage(), 'Controllers') || str_contains($e->getMessage(), 'payment.zinari.org')) {
             //     return get_error_response(['msg' => "Request understood but could not be process at the moment, Please contact support"]);
             // }
-            return get_error_response(['msg' => $e->getMessage()]);
+            // return get_error_response(['msg' => $e->getMessage()]);
         });
 
 

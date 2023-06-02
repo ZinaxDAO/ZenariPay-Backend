@@ -2,7 +2,7 @@
 
 use App\Models\WebSettings;
 use App\Models\Balance;
-use App\Models\User; 
+use App\Models\User;
 use App\Models\Rate;
 use Illuminate\Support\Facades\Http;
 
@@ -26,15 +26,6 @@ if (!function_exists('get_error_response')) {
 }
 
 
-
-if (!function_exists('get_add_balance')) {
-    function get_add_balance($currency, $newAdsAmount)
-    {
-        // sum all trade balance for the provided currency
-        // check if the balance is still enough to the new incoming ads
-        return true;
-    }
-}
 
 if (!function_exists('getUser')) {
     function getUsers()
@@ -77,28 +68,15 @@ if (!function_exists('getExchangeVal')) {
    {
         $request = Rate::where(['from_currency' => $fromCurrency, 'to_currency' => $toCurrency])->first();
         $result = 0;
-        if(($request) && !empty($request->rate)){
-            $result = $request->rate;
+        if(!empty($rate)){
+            $rate = to_array($request);
+            if(!in_array($toCurrency, $rate)){
+                return 0;
+            }
+            $result = $rate[$toCurrency];
             if($amount != null){
                 $result = $result * $amount;
             }
-        } else {
-            // save exchange value to DB
-            $request = file_get_contents("https://min-api.cryptocompare.com/data/price?fsym=$fromCurrency&tsyms=$toCurrency");
-        
-            $url = to_array($request);
-            $result = $url[$toCurrency];
-            
-            $new_rate = new Rate();
-            $new_rate->from_currency = $fromCurrency;
-            $new_rate->to_currency = $toCurrency;
-            $new_rate->rate = $result;
-            $new_rate->save();
-            
-            if($amount != null){
-                $result = $result * $amount;
-            }
-            // return $result;
         }
         
         return $result;
@@ -348,33 +326,27 @@ if (!function_exists('balanceTopup')) {
      * @param optional $user_id
      */
 
-    function balanceTopup($amount, $currency, $user_id = NULL, $type = 'cr')
+    function balanceTopup($amount, $currency, $user_id = NULL)
     {
         $uid = $user_id ?? auth()->id();
         $currency = $currency ?? 'USD';
-        $user = Balance::where(['user_id' => $uid, 'ticker_name' => $currency])->first();
+        $user = Balance::where(['user_id' => $uid, 'code' => $currency])->first();
         if($user) :
-            if($type == 'dr' || $type == 'debit'){
-                $user->balance = ($user->balance - floatval($amount));
-            } 
-            if($type == 'cr' || $type == 'credit'){
-                $user->balance = ($user->balance + floatval($amount));
-            } 
-            $user->save();
-            // if ($user->save()) :
-            //     TransactionModel::insert([
-            //         'user_id'   => $uid,
-            //         'type'      => $type,
-            //         'action'    => 'topup',
-            //         'amount'    => $amount,
-            //         'fee'       => 0,
-            //         'receiver'  => 'self',
-            //         'rate'      => 0,
-            //         'reference' => session()->get('tranx_id') ?? _getTransactionId(),
-            //         'details'   => json_encode($user)
-            //     ]);
-            //     return true;
-            // endif;
+            $user->balance = ($user->balance + $amount);
+            if ($user->save()) :
+                TransactionModel::insert([
+                    'user_id'   => $uid,
+                    'type'      => 'credit',
+                    'action'    => 'topup',
+                    'amount'    => $amount,
+                    'fee'       => 0,
+                    'receiver'  => 'self',
+                    'rate'      => 0,
+                    'reference' => session()->get('tranx_id') ?? _getTransactionId(),
+                    'details'   => json_encode($user)
+                ]);
+                return true;
+            endif;
         endif;
         return false;
     }

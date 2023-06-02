@@ -11,6 +11,7 @@ class DojaController extends Controller
 {
     public function send_otp(Request $request)
     {
+        return OtpVerificationController::generateOtp($request->email);
         $request->validate([
             'phone' => 'required|numeric',
         ], [

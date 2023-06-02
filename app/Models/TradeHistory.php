@@ -9,8 +9,13 @@ class TradeHistory extends Model
 {
     use HasFactory;
 
-    public function payment_method(){
-        return $this->belongsTo(Paymentmethod::class, 'payment_id', 'id');
+    // public function payment_method($id){
+    //     return Paymentmethod::whereId($id)->first();
+    // }
+    
+    public function payment_method()
+    {
+        return $this->belongsTo(Paymentmethod::class);
     }
 
     public function trade()

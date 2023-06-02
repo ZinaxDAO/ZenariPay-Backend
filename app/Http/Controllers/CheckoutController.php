@@ -98,7 +98,7 @@ class CheckoutController extends Controller
         }
     }
     
-    public function mobile(Request $request, $checkoutType)
+    public function mobile(Request $request, $checkoutType=null)
     {
         $validateUser = Validator::make($request->all(), 
         [
@@ -113,15 +113,15 @@ class CheckoutController extends Controller
             return get_error_response($validateUser->errors(), 400);
         }
         
-        if($checkoutType == 'crypto'){
+        // if($checkoutType == 'crypto'){
             // return crypto data for checkout.
             return $this->mobile_crypto($request->only(['currency','coin', 'amount', 'customer_email', 'customer_name']));
-        }
+        // }
         
         return get_error_response(["error" => "Unknown payment method"], 417);
     }
     
-    private function mobile_crypto($data)
+    public function mobile_crypto($data)
     {
         // payment method is crypto fiat
         $user = auth()->user();
@@ -136,8 +136,11 @@ class CheckoutController extends Controller
         ];
         
         $order = (new OrderController())->__processOrder($params, $user->id);
+        $_amt = $data['amount'];
         if($data['coin'] == "BTC" OR $data['coin'] == "BCH"):
-            $order['qr_code'] = "https://chart.googleapis.com/chart?chs=300x300&cht=qr&chl=bitcoin:$order->address&choe=UTF-8";
+            $order['qr_code'] = "https://chart.googleapis.com/chart?chs=300x300&cht=qr&chl=bitcoin:$order->address&amount=$_amt&choe=UTF-8";
+        else:
+            $order['qr_code'] = "https://chart.googleapis.com/chart?chs=300x300&cht=qr&chl=$order->address&amount=$_amt&choe=UTF-8";
         endif;
         return response()->json($order);
     }
@@ -157,11 +160,15 @@ class CheckoutController extends Controller
         ];
         
         $order = (new OrderController())->__processOrder($params, $user->id);
-        if($data['coin'] == "BTC" OR $data['coin'] == "BCH"):
-            $_amt = $data['amount'];
-            $order['qr_code'] = "https://chart.googleapis.com/chart?chs=300x300&cht=qr&chl=bitcoin:$order->address&amount=$_amt&choe=UTF-8";
-        endif;
         return response()->json($order);
+    }
+    
+    
+    public function getStatus($id)
+    {
+        $order = Order::whereId($id)->first();
+        if(!$order) return get_error_response(['error' => "Checkout with the provided data not found."], 404);
+        return get_success_response(['status' => $order->status]);
     }
     
 }

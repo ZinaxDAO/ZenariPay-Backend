@@ -82,9 +82,74 @@ class TradeController extends Controller
                     'errors' => $validateUser->errors()
                 ], 417);
             }
+    
+            // if(get_add_balance($request->trade_currency)){
+            //     return response()->json([
+            //         'status' => false,
+            //         'message' => 'validation error',
+            //         'errors' => [
+            //             'balance' => 'Insuficient balance'
+            //         ]
+            //     ], 417);
+            // }
 
             // create a new Buy Trade
-            $buy = new Trade();
+            $trade = new Trade();
+            $trade->user_id           = auth('sanctum')->id();
+            $trade->min_amount        = $request->min_amount;
+            $trade->max_amount        = $request->max_amount;
+            $trade->trade_currency    = $request->trade_currency;
+            $trade->priceType         = $request->priceType; // enum ['float', 'fixed']
+            $trade->totalAmount       = $request->totalAmount;
+            $trade->paymentMethod     = $request->paymentMethod; // array of IDs
+            $trade->tradeType         = $request->tradeType;
+            $trade->time_limit        = $request->time_limit;
+            $trade->fiatName          = $request->fiatName;
+            $trade->terms             = $request->terms;
+            $trade->marginPrice       = $request->marginPrice;
+             
+            if($trade->save()){
+                return get_success_response(['msg' => 'New Buy Order created successfully', "data" => $trade]);
+            }
+        } catch (\Throwable $th) {
+            return get_error_response($th->getMessage(), 500);
+        }
+    }
+
+    /**
+     * Store a newly created resource in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
+     */
+    public function update(Request $request, $id)
+    {
+        // return $req
+        try {
+            //Validated
+            $validateUser = Validator::make($request->all(), 
+            [
+                'min_amount'    =>  'required',
+                'max_amount'    =>  'required',
+                'trade_currency'=>  'required',
+                'priceType'     =>  'required',
+                'totalAmount'   =>  'required|lte:max_amount',
+                'paymentMethod' =>  'required|int',
+                'tradeType'     =>  'required',
+                'assetName'     =>  'required',
+                'fiatName'      =>  'required',
+            ]);
+
+            if($validateUser->fails()){
+                return response()->json([
+                    'status' => false,
+                    'message' => 'validation error',
+                    'errors' => $validateUser->errors()
+                ], 417);
+            }
+
+            // create a new Buy Trade
+            $buy = Trade::whereId($id)->first();
             $buy->user_id           = auth('sanctum')->id();
             $buy->min_amount        = $request->min_amount;
             $buy->max_amount        = $request->max_amount;
@@ -99,7 +164,7 @@ class TradeController extends Controller
             $buy->marginPrice       = $request->marginPrice;
              
             if($buy->save()){
-                return get_success_response(['msg' => 'New Buy Order created successfully', "data" => $buy]);
+                return get_success_response(['msg' => 'Trade updated successfully', "data" => $buy]);
             }
         } catch (\Throwable $th) {
             return get_error_response($th->getMessage(), 500);
@@ -170,17 +235,6 @@ class TradeController extends Controller
         //
     }
 
-    /**
-     * Update the specified resource in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function update(Request $request, $id)
-    {
-        //
-    }
 
     /**
      * Remove the specified resource from storage.

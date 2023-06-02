@@ -15,4 +15,8 @@ class WalletAddress extends Model
      */
     protected $hidden = ['user_id', 'updated_at', 'deleted_at'];
     protected $guarded = [];
+    
+    protected $casts = [
+        'other' =>  'array'
+    ];
 }

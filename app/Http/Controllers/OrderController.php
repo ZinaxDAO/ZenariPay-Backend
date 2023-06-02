@@ -22,9 +22,17 @@ class OrderController extends Controller
     public function get_all()
     {
         try {
-            $get = Order::where('user_id', auth('sanctum')->id())->orderBy('created_at', 'desc')->paginate();
+            $where = [
+                'user_id' => auth('sanctum')->id()
+            ];
+            
+            if($request->has('currency') && !empty($request->currency)){
+                $where['currency'] = $request->currency;
+            }
+            
+            $get = Order::where($where)->orderBy('created_at', 'desc')->paginate();
             if(!empty($get)){
-                $get->makeHidden(['updated_at', 'id', 'created_at', 'user_id', 'deleted_at']);
+                $get->makeHidden(['deleted_at']);
                 return get_success_response($get);
             }
         } catch (\Throwable $th) {
@@ -147,12 +155,9 @@ class OrderController extends Controller
     public function get($order)
     {
         try {
-            $orderRequest = Order::where([
-                'reference' => $order,
-                'user_id' => auth('sanctum')->id()
-            ])->first();
+            $orderRequest = Order::whereId($order)->first();
+            $result = result($orderRequest);
             if(!empty($result)){
-                // $result = result($orderRequest);
                 $order = result($orderRequest->makeHidden(['updated_at', 'id', 'created_at', 'user_id', 'deleted_at']));
                 return get_success_response($order);
             }

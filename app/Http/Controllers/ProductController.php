@@ -49,15 +49,18 @@ class ProductController extends Controller
                 'product_price'         =>  'required',
                 'product_description'   =>  'required',
             ]);
-            $save = Product::create([
+            $data = [
                 'user_id'               =>  auth('sanctum')->id(),
                 'product_name'          =>  $request->product_name ?? NULL,
                 'product_currency'      =>  $request->product_currency ?? NULL,
                 'product_price'         =>  $request->product_price ?? NULL,
                 'product_social'        =>  $request->product_social ?? NULL,
                 'product_description'   =>  $request->product_description ?? NULL,
-                'product_image'         =>  save_image('products', $request->file('product_image')) ?? NULL,
-            ]);
+            ];
+            if($request->hasFile('product_image')){
+                $data['product_image']  =  save_image('products', $request->file('product_image'));
+            }
+            $save = Product::create($data);
             if ($save) {
                 return get_success_response($save);
             }

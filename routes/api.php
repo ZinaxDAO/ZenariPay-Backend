@@ -20,6 +20,7 @@ use App\Http\Controllers\DojaController;
 use App\Http\Controllers\DepositController;
 use App\Http\Controllers\DisputeController;
 use App\Http\Controllers\ForgotPassword;
+use App\Http\Controllers\OtpVerificationController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Middleware\VerifyCsrfToken;
@@ -38,6 +39,9 @@ use App\Http\Middleware\VerifyCsrfToken;
 Route::group(['middleware' => 'web', 'prefix' => 'checkout'], function() {
     Route::get("{slug}",   [CheckoutController::class, 'getPaymentData'])->withoutMiddleware([VerifyCsrfToken::class]);
     Route::post("{slug}",  [CheckoutController::class, 'process'])->withoutMiddleware([VerifyCsrfToken::class]);
+        
+    // Get status of checkout transaction
+    Route::get("{id}/status", [CheckoutController::class, 'getStatus']);
 });
 
 
@@ -55,16 +59,31 @@ Route::group(['middleware' => 'web'], function (){
      * Authenticated Routes goes here
      */
     Route::group(['middleware' => 'auth:sanctum'], function (){
+        
         // mobile app endpoint
-        Route::any("checkout/mobile/{type}",  [CheckoutController::class, 'mobile']);
+        Route::group(['prefix' => 'checkout/mobile'], function (){
+            Route::get('payment-method',                [PaymentMethodController::class, 'index']);
+            Route::post('payment-method',               [PaymentMethodController::class, 'store']);
+            Route::get('payment-method/{id}/delete',    [PaymentMethodController::class, 'destroy']);
+            
+            // checkout endpoints
+            Route::post("agent",        [TradeHistoryController::class, 'store']);//->withoutMiddleware([VerifyCsrfToken::class]);
+            Route::any("crypto",        [CheckoutController::class, 'mobile']);
+            
+            // system supported currencies
+            Route::any("sys-currencies",[PaymentMethodController::class, 'sys_currencies']);
+        });
+        
+        
         // wallet topup via crypto
         Route::any("topup/balance",     [DepositController::class, 'topup']);
+        Route::get("topup/{id}/status", [DepositController::class, 'getDeposit']);
         
         // wallet management routes
         Route::post('create-wallet-address',    [GetDepositAddress::class, 'getRandomDepositWallet']);
         Route::get('generate-wallet-address',   [GetDepositAddress::class, 'store']);
         Route::get('cmd-get/{id}',              [OrderController::class, 'get']);
-        Route::any('cmd-get-all',               [OrderController::class, 'get_all']);
+        Route::get('cmd-get-all',               [OrderController::class, 'get_all']);
         Route::post('cmd-create',               [OrderController::class, 'store']);
         Route::get('cmd-status/{id}',           [OrderController::class, 'status']);
 
@@ -72,7 +91,8 @@ Route::group(['middleware' => 'web'], function (){
         
         Route::post('update-profile',   [AuthController::class, 'updateProfile']);
         Route::post('send-otp',         [DojaController::class, 'send_otp'])->name('send.otp');
-        Route::post('validate-otp',     [DojaController::class, 'validate_otp'])->name('validate.otp');
+        Route::post('validate-otp',     [OtpVerificationController::class, 'verifyOtp'])->name('validate.otp');
+        // Route::post('validate-otp',     [DojaController::class, 'validate_otp'])->name('validate.otp');
         Route::post('pin/{new_pin}',    [AuthController::class, 'transaction_pin']);
         
         // payment links
@@ -126,7 +146,7 @@ Route::group(['middleware' => 'web'], function (){
             Route::get('/{id}/delete',  [PaymentMethodController::class, 'destroy']);
             
             // system add currencies supported data
-            Route::get('sys-currencies',            [PaymentMethodController::class, 'sys_currencies']);
+            Route::get('sys-currencies', [PaymentMethodController::class, 'sys_currencies']);
         });
         
 
@@ -157,9 +177,10 @@ Route::group(['middleware' => 'web'], function (){
 
         Route::group(['prefix' => 'trade'], function (){
             Route::get('history',       [TradeController::class, 'index'])->name('trade.history');
-            Route::post('update',       [TradeController::class, 'update'])->name('trade.update');
+            Route::post('{id}/update',  [TradeController::class, 'update'])->name('trade.update.save');
+            // Route::post('update',       [TradeController::class, 'update'])->name('trade.update');
             Route::post('store',        [TradeController::class, 'store'])->name('trade.store');
-            Route::get('delete/{id}',   [TradeController::class, 'destroy'])->name('trade.delete');
+            Route::delete('delete/{id}',[TradeController::class, 'destroy'])->name('trade.delete');
             Route::get('deleted',       [TradeController::class, 'deleted'])->name('trade.deleted');
             Route::get('open/agent',    [TradeController::class, 'agent'])->name('trade.open.agent');
             Route::get('open/user',     [TradeController::class, 'user'])->name('trade.open.users');

@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Buy;
 use App\Models\Trade;
+use App\Models\Balance;
 use App\Models\TradeHistory;
+use App\Models\Paymentmethod;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
@@ -51,20 +53,23 @@ class TradeHistoryController extends Controller
     public function received(Request $request)
     {
         if($request->post()){
-            $trade = TradeHistory::where("id", $request->trade_id->where('agent_id', $request->user()->id))->first();
+            $trade = TradeHistory::where("id", $request->trade_id)->where('agent_id', $request->user()->id)->first();
             if(!$trade){
                 return get_error_response(["error" => "Trade not found"], 404);
             }
-            if($trade->is_paid != 1){
+            if((int)$trade->is_paid != 1){
                 return get_error_response(["error" => "The customer needs to mark trade as paid firstly"], 400);
             }
             if($trade->trade_status == "SUCCESS"){
                 return get_error_response(["error" => "Trade is already completed"], 400);
             }
-            if(strtolower($trade->trade_status) == "pending" && $trade->is_paid == 1){
+            if(strtolower($trade->trade_status) == "pending" && (int)$trade->is_paid == 1){
+                $agent = balanceTopup($trade->trade_amount, $trade->trade_currency, $trade->agent_id, 'dr');
+                $customer = balanceTopup($trade->trade_amount, $trade->trade_currency, $trade->user_id);
                 $trade->is_received = 1;
                 $trade->trade_status = "SUCCESS";
                 $trade->save();
+                
                 
                 return get_success_response(["msg" => "Trade as been marked as completed successfully"]);
             }
@@ -81,13 +86,17 @@ class TradeHistoryController extends Controller
     {
         // Grab list of all Buy Trades active and non active
         try {
+            $where = [];
             if($request->has('status') && !empty($request->has('status'))):
                 $where['trade_status'] = strtoupper($request->input('status'));
             endif;
-            $where['user_id'] = $request->user()->id;
-
-            $trade = TradeHistory::where($where)->with('payment_method', 'trade', 'user', 'agent')->paginate(per_page());
-            return get_success_response($trade);
+            
+            $user = $request->user();
+            $whereAgent['agent_id'] = $user->id;
+            $whereUser['user_id'] = $user->id;
+            $trades = TradeHistory::where($where)->where($whereAgent)->orWhere($whereUser)->with('trade', 'user', 'agent')->orderBy('created_at', 'desc')->paginate(per_page());
+            
+            return get_success_response($trades);
         } catch (\Throwable $th) {
             return get_error_response($th->getMessage(), 500);
         }
@@ -117,10 +126,9 @@ class TradeHistoryController extends Controller
             $validateUser = Validator::make(
                 $request->all(),
                 [
-                    // 'trade_id'      =>  'required',
-                    'trade_amount'  =>  'int|required',
-                    // 'payment_id'    =>  'required',
+                    'trade_amount'  =>  'numeric|required',
                     'trade_type'    =>  'required',
+                    'trade_currency'=>  'required'
                 ]
             );
 
@@ -133,11 +141,19 @@ class TradeHistoryController extends Controller
             }
 
 
-            $tradeType = $request->trade_type;
+            $tradeType = strtolower($request->trade_type);
             $user = $request->user();
+            
+            //check if customer has enough balance for the specified wallet.
+            $bl['user_id'] = $request->user()->id;
+            $bl['balance_type']  =   $request->type;
+            $customer_balance = Balance::where($bl)->get();
+            if($customer_balance < $request->trade_amount){
+                return get_error_response(['error' => 'Insufficient balance'], 402);
+            }
 
             if(!in_array(strtolower($tradeType), ['buy', 'sell'])):
-                return \get_error_response(['error' => 'Unknown Transaction type'], 417);
+                return get_error_response(['error' => 'Unknown Transaction type'], 417);
             endif;
             
             if($tradeType == "sell" && !$request->has('payment_id')){
@@ -148,24 +164,36 @@ class TradeHistoryController extends Controller
                 ]);
             }
             
-            // if($request->has('trade_id')):
-            //     $where['id'] = $request->trade_id;
-            // endif;
-            
             $where['trade_currency'] =  $request->trade_currency;
-
-            $get_trade = Trade::where($where)->where('tradeType', '!=', $tradeType)->where('user_id', '!=', $user->id)->orderBy('cancellation_rate', 'ASC');
-            $get_trade = $get_trade->where('min_amount', '<=', $request->trade_amount)->where('max_amount', '>=', $request->trade_amount)->first();
             
+            // convert trade amount to float and store as variable $t
+            $t =  floatval($request->trade_amount);
+
+            $query = Trade::where($where)->where('tradeType', '!=', $tradeType)->where('user_id', '!=', $user->id)->orderBy('cancellation_rate', 'ASC');
+            // $get_trade = $query->where('min_amount', '>=', $request->trade_amount)->where('max_amount', '>=', $request->trade_amount)->first();
+            // $get_trade = $query->whereRaw('? between min_amount and max_amount', $request->trade_amount)->first();
+            $get_trade = $query->where(function ($query) use ($t) {
+                                $query->where('min_amount', '<=', $t);
+                                $query->where('max_amount', '>=', $t);
+                            })->first();
+
             if(!$get_trade){
-                return get_error_response(["error" => "Sorry we can't process your request at the moment please try a different amount or another currency"]);
+                return get_error_response(["error" => "Sorry we can't process your request at the moment please try a different amount or another currency"], 404);
             }
             
             if(!$get_trade OR $get_trade->user_id == $user->id):
                 return get_error_response(['error' => "Selected Agent is currently unavailable to accept new order"], 404);
             endif;
             
+            $get_trade->max_amount = (floatval($get_trade->max_amount) - floatval($request->trade_amount));
+            $get_trade->save();
+            
             // create a new Buy Trade
+            $uniquePaymentId = $request->payment_id;
+            if($request->trade_type == 'buy'){
+                $uniquePaymentId = $get_trade->paymentMethod;
+            }
+            
             $trade = new TradeHistory();
             $trade->user_id         = $user->id;
             $trade->trade_id        = $get_trade->id;
@@ -174,15 +202,32 @@ class TradeHistoryController extends Controller
             $trade->trade_amount    = $request->trade_amount;
             $trade->transaction_id  = _getTransactionId();
             $trade->trade_currency  = $get_trade->trade_currency;
-            $trade->payment_id      = $request->payment_id;
+            $trade->payment_id      = $uniquePaymentId;
             $trade->trade_type      = $request->trade_type;
 
 
             if ($trade->save()) {
-                // get order joined with payment data
+                // get order joined with payment data paymentMethod
                 $trade = TradeHistory::where('id', $trade->id)->with('payment_method', 'trade', 'user', 'agent')->first()->makeHidden(['created_at', 'updated_at', 'deleted_at']);
-                $get_trade->max_amount = ($get_trade->max_amount - $request->trade_amount);
-                $get_trade->save();
+                // var_dump($trade->trade->paymentMethod); exit;
+                $paymentMethod = $trade->trade->paymentMethod;
+                
+                $trade = to_array($trade);
+                $trade['payment_method'] = Paymentmethod::find($paymentMethod);
+                
+                // if($tradeType == 'sell'){
+                //     $trade->payment_id = $trade->trade->paymentMethod;
+                //     $trade['payment_method'] = Paymentmethod::find($paymentMethod);
+                //     $trade->payment_id = $paymentMethod;
+                // } else if($tradeType == 'buy'){
+                //     $trade->payment_id = $request->payment_id;
+                //     $trade['payment_method'] = Paymentmethod::find($request->payment_id);
+                // }
+                
+                // $trade->save();
+                
+                // return $trade;
+                // send notification to both agent and customer
                 return get_success_response(['msg' => 'Trade created successfully', "data" => $trade]);
             }
         } catch (\Throwable $th) {
@@ -257,7 +302,9 @@ class TradeHistoryController extends Controller
     
     public function getTrade($tradeId)
     {
-        $trade = TradeHistory::where('id', $tradeId)->with(['agent', 'user', 'trade'])->first();
+        $trade = TradeHistory::where('id', $tradeId)->with('payment_method', 'trade', 'user', 'agent')->first();
+        $trade = to_array($trade);
+        $trade['payment_method'] = Paymentmethod::find($trade['payment_id']);
         return get_success_response($trade);
     }
 }

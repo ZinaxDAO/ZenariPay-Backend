@@ -13,6 +13,6 @@ class Deposit extends Model
     /**
      * The attributes that should be hidden for arrays.
      */
-    protected $hidden = ['id', 'user_id', 'deleted_at'];
+    protected $hidden = ['user_id', 'deleted_at'];
     protected $guarded = [];
 }

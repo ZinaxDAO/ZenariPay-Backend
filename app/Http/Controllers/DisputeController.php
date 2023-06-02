@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Dispute;
 use App\Models\Order;
+use App\Models\TradeHistory;
 use App\Models\DisputeMessage;
 
 class DisputeController extends Controller
@@ -13,6 +14,11 @@ class DisputeController extends Controller
     {
         if($request->post()){
             // create a new dispute for the given order
+            $trade = TradeHistory::whereId($request->transaction_id)->firstorfail();
+            $ccId = $trade->user_id;
+            if($request->user()->id == $ccId){
+                $ccId = $trade->agent_id;
+            }
             $dispute = Dispute::create([
                 'user_id'       => $request->user()->id,
                 'created_by'    => $request->user()->id,
@@ -20,15 +26,15 @@ class DisputeController extends Controller
                 'dispute_type'  => $request->input('dispute_type'),
                 'description'   => $request->input('description'),
                 'status'        => 'open',
+                'customer_id'   =>  $ccId
             ]);
             
             // $dispute->save($dispute);
             
-            
             $message = DisputeMessage::create([
                 'dispute_id' => $dispute->id,
                 'user_id'    => $request->user()->id,
-                'message'    => $request->description
+                'message'    => $request->description,
             ]);
             
             return get_success_response($message);
@@ -38,7 +44,8 @@ class DisputeController extends Controller
         $where = [
             'user_id' => $request->user()->id
         ];
-        $disputes = Dispute::where($where)->orderBy('created_at', 'desc')->paginate(10);
+        
+        $disputes = Dispute::where($where)->orWhere('customer_id', $request->user()->id)->orderBy('created_at', 'desc')->paginate(10);
         return get_success_response($disputes);
     }
 
@@ -74,9 +81,10 @@ class DisputeController extends Controller
     {
         // add a reply to the dispute
         DisputeMessage::create([
-            'user_id' => auth()->id(),
-            'dispute_id' => $dispute_id,
-            'message' => $request->input('reply'),
+            'user_id'       => auth()->id(),
+            'customer_id'   => $request->customer_id,
+            'dispute_id'    => $dispute_id,
+            'message'       => $request->reply,
         ]);
 
         return get_success_response(["reply" => $request->reply]);
@@ -85,7 +93,7 @@ class DisputeController extends Controller
     public function chats(Request $request, $dispute_id)
     {
         // get replies to dispute
-        $chats = DisputeMessage::where('dispute_id', $dispute_id)->orderBy('created_at', 'desc')->get();
+        $chats = DisputeMessage::where(['dispute_id' => $dispute_id, 'is_admin' => 0])->orderBy('created_at', 'desc')->get();
         return get_success_response($chats);
     }
 }

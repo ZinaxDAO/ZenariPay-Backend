@@ -65,20 +65,6 @@ class PaymentMethodController extends Controller
     public function store(Request $request)
     {
         try {
-            //validate data
-            // $validateUser = Validator::make($request->all(), 
-            // [
-            //     'currency'  =>  'required',
-            // ]);
-
-            // if($validateUser->fails()){
-            //     return response()->json([
-            //         'status' => false,
-            //         'message' => 'validation error',
-            //         'errors' => $validateUser->errors()
-            //     ], 400);
-            // }
-
             $payment_info = [];
             foreach ($request->post() as $key => $v) {
                 $payment_info[$key] = $v;
@@ -90,7 +76,7 @@ class PaymentMethodController extends Controller
             $method->method_name    = $request->method_name;
             $method->payment_info   = $payment_info;
             if ($method->save()) {
-                return get_success_response(['msg' => 'Payment method added successfull']);
+                return get_success_response(['msg' => 'Payment method added successfull', 'data' => $method]);
             }
         } catch (\Throwable $th) {
             return get_error_response($th->getMessage(), 500);
